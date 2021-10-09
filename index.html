@@ -193,7 +193,7 @@
             console.log({numHomePlayers, numAwayPlayers, numCourts, numRounds});
 
             const homeRounds = regenerateTeam("Home", numHomePlayers, numCourts, numRounds);
-            const awayRounds = regenerateTeam("Away", numHomePlayers, numCourts, numRounds);
+            const awayRounds = regenerateTeam("Away", numAwayPlayers, numCourts, numRounds);
             displayRounds(homeRounds, awayRounds, numCourts, numRounds);
         }
     </script>
