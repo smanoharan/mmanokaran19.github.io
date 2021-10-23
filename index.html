@@ -2,8 +2,92 @@
 <head>
     <title>Badminton Scheduler</title>
     <script type="text/javascript">
+        class Display {
+            addCell(row, text) {
+                const cellElem = document.createElement('td');
+                cellElem.innerText = text;
+                row.appendChild(cellElem);
+            }
+
+            addHeader(row, html, colSpan=1, rowSpan=1) {
+                const cellElem = document.createElement('th');
+                cellElem.innerHTML = html;
+                cellElem.colSpan = colSpan;
+                cellElem.rowSpan = rowSpan;
+                row.appendChild(cellElem);
+            }
+
+            rounds(homeRounds, awayRounds, numCourts, numRounds) {
+                const headRow = document.getElementById("roundsHead");
+                headRow.innerHTML = '<th>Draw</th>';
+
+                for (let i=0; i<numCourts; i++) {
+                    this.addHeader(headRow, `Court ${i+1}`, 3, 1);
+                }
+
+                const body = document.getElementById("roundsBody");
+                body.innerHTML = '';
+
+                for (let roundIndex=0; roundIndex<numRounds; roundIndex++) {
+                    const upperRow = document.createElement('tr');
+                    const lowerRow = document.createElement('tr');
+
+                    this.addHeader(upperRow, `Round ${roundIndex+1}`, 1, 2);
+                    for (let courtIndex=0; courtIndex<numCourts; courtIndex++) {
+                        const playerIndex = courtIndex * 2;
+                        this.addCell(upperRow, homeRounds[roundIndex][playerIndex].name);
+                        this.addCell(upperRow, homeRounds[roundIndex][playerIndex+1].name);
+                        this.addCell(upperRow, '');
+
+                        this.addCell(lowerRow, awayRounds[roundIndex][playerIndex].name);
+                        this.addCell(lowerRow, awayRounds[roundIndex][playerIndex+1].name);
+                        this.addCell(lowerRow, '');
+                    }
+
+                    body.appendChild(upperRow);
+                    body.appendChild(lowerRow);
+                }
+            }
+
+            team(teamName, rounds, numCourts, numRounds, players) {
+                const headRow = document.getElementById(teamName + "PlayersHead");
+                headRow.innerHTML = '';
+
+                this.addHeader(headRow, teamName);
+                for (let i=0; i<players.length; i++) {
+                    this.addHeader(headRow, players[i].name);
+                }
+
+                const body = document.getElementById(teamName + "PlayersBody");
+                //console.log({body, name: teamName + "PlayersBody"});
+                body.innerHTML = '';
+
+                for (let roundIndex=0; roundIndex<numRounds; roundIndex++) {
+                    const row = document.createElement('tr');
+                    this.addHeader(row, `Round ${roundIndex+1}`);
+
+                    for (let i=0; i<players.length; i++) {
+                        const courtIndex = players[i].findCourt(rounds[roundIndex], numCourts);
+                        this.addCell(row, courtIndex === undefined ? '' : `C${courtIndex+1}`);
+                    }
+
+                    body.appendChild(row);
+                }
+
+                const row = document.createElement('tr');
+                this.addHeader(row, `Games Played`);
+                for (let i=0; i<players.length; i++) {
+                    this.addHeader(row, players[i].numGamesPlayed);
+                }
+                body.appendChild(row);
+            }
+        }
+
+        const display = new Display();
+
         class Player {
-            constructor(name) {
+            constructor(index, name) {
+                this.index = index;
                 this.name = name;
                 this.numGamesPlayed = 0;
                 this.numConsecutiveGamesPlayed = 0;
@@ -54,7 +138,7 @@
 
             const priorities = uniqSortedRev(players.map(p => p.priority(maxGamesPlayed)));
             const playersByPriority = priorities.map(p => players.filter(player => player.priority(maxGamesPlayed) === p));
-            console.log({priorities, playersByPriority});
+            //console.log({priorities, playersByPriority});
 
             const result = [];
             for (let players of playersByPriority) {
@@ -70,116 +154,127 @@
             return shuffle(result);
         }
 
-        function generateNextRound(players, numCourts) {
-            const currentRoundPlayers = selectOptimalPlayers(players, numCourts*2);
+        function countDuplicates(round, pairCount, playerCount) {
+            let result = 0;
+            for (let i=0; i<round.length; i+= 2) {
+                const p1 = round[i].index;
+                const p2 = round[i+1].index;
+                const min = Math.min(p1, p2);
+                const max = Math.max(p1, p2);
+                const c = pairCount[min*playerCount + max];
+                if (c > 0) {
+                    result += (c+1)*(c+1)*(c+1);
+                }
+            }
+
+            return result;
+        }
+
+        function generateNextRound(players, numCourts, pairCount) {
+            let bestRound = [];
+            let bestDuplicateCount = 1000000;
+
+            const maxTries = 1000;
+            for (let i=0; i<maxTries; i++) {
+                const round = selectOptimalPlayers(players, numCourts*2);
+                const numDuplicates = countDuplicates(round, pairCount, players.length);
+
+                if (numDuplicates === 0) {
+                    bestRound = round;
+                    break;
+                } else if (numDuplicates < bestDuplicateCount) {
+                    bestRound = round;
+                    bestDuplicateCount = numDuplicates;
+                }
+            }
+
+            for (let i=0; i<bestRound.length; i+= 2) {
+                const p1 = bestRound[i].index;
+                const p2 = bestRound[i+1].index;
+                const min = Math.min(p1, p2);
+                const max = Math.max(p1, p2);
+                pairCount[min*players.length + max]++;
+            }
 
             for (let i=0; i<numCourts*2; i++) {
-                currentRoundPlayers[i].numGamesPlayed++;
-                currentRoundPlayers[i].numConsecutiveGamesPlayed++;
+                bestRound[i].numGamesPlayed++;
+                bestRound[i].numConsecutiveGamesPlayed++;
             }
             for (let i=0; i<players.length; i++) {
-                const isPlaying = currentRoundPlayers.find(player => player.name === players[i].name);
+                const isPlaying = bestRound.find(player => player.name === players[i].name);
                 if (!isPlaying) {
                     players[i].numConsecutiveGamesPlayed = 0;
                 }
             }
 
-            return currentRoundPlayers;
-        }
-
-        function addCell(row, text) {
-            const cellElem = document.createElement('td');
-            cellElem.innerText = text;
-            row.appendChild(cellElem);
-        }
-
-        function addHeader(row, html, colSpan=1, rowSpan=1) {
-            const cellElem = document.createElement('th');
-            cellElem.innerHTML = html;
-            cellElem.colSpan = colSpan;
-            cellElem.rowSpan = rowSpan;
-            row.appendChild(cellElem);
-        }
-
-        function displayRounds(homeRounds, awayRounds, numCourts, numRounds) {
-            const headRow = document.getElementById("roundsHead");
-            headRow.innerHTML = '<th>Draw</th>';
-
-            for (let i=0; i<numCourts; i++) {
-                addHeader(headRow, `Court ${i+1}`, 3, 1);
-            }
-
-            const body = document.getElementById("roundsBody");
-            body.innerHTML = '';
-
-            for (let roundIndex=0; roundIndex<numRounds; roundIndex++) {
-                const upperRow = document.createElement('tr');
-                const lowerRow = document.createElement('tr');
-
-                addHeader(upperRow, `Round ${roundIndex+1}`, 1, 2);
-                for (let courtIndex=0; courtIndex<numCourts; courtIndex++) {
-                    const playerIndex = courtIndex * 2;
-                    addCell(upperRow, homeRounds[roundIndex][playerIndex].name);
-                    addCell(upperRow, homeRounds[roundIndex][playerIndex+1].name);
-                    addCell(upperRow, '');
-
-                    addCell(lowerRow, awayRounds[roundIndex][playerIndex].name);
-                    addCell(lowerRow, awayRounds[roundIndex][playerIndex+1].name);
-                    addCell(lowerRow, '');
-                }
-
-                body.appendChild(upperRow);
-                body.appendChild(lowerRow);
-            }
-        }
-
-        function displayTeam(teamName, rounds, numCourts, numRounds, players) {
-            const headRow = document.getElementById(teamName + "PlayersHead");
-            headRow.innerHTML = '';
-
-            addHeader(headRow, teamName);
-            for (let i=0; i<players.length; i++) {
-                addHeader(headRow, players[i].name);
-            }
-
-            const body = document.getElementById(teamName + "PlayersBody");
-            console.log({body, name: teamName + "PlayersBody"});
-            body.innerHTML = '';
-
-            for (let roundIndex=0; roundIndex<numRounds; roundIndex++) {
-                const row = document.createElement('tr');
-                addHeader(row, `Round ${roundIndex+1}`);
-
-                for (let i=0; i<players.length; i++) {
-                    const courtIndex = players[i].findCourt(rounds[roundIndex], numCourts);
-                    addCell(row, courtIndex === undefined ? '' : `C${courtIndex+1}`);
-                }
-
-                body.appendChild(row);
-            }
-
-            const row = document.createElement('tr');
-            addHeader(row, `Games Played`);
-            for (let i=0; i<players.length; i++) {
-                addHeader(row, players[i].numGamesPlayed);
-            }
-            body.appendChild(row);
+            return bestRound;
         }
 
         function regenerateTeam(teamName, numPlayers, numCourts, numRounds) {
             const players = [];
             for (let i = 0; i < numPlayers; i++) {
-                players.push(new Player(teamName[0] + (i+1)));
+                players.push(new Player(i, teamName[0] + (i+1)));
+            }
+
+            // keep track of the number of times each pair of players happens
+            const pairCount = new Array(numPlayers * numPlayers);
+            for (let i=0; i<numPlayers*numPlayers; i++) {
+                pairCount[i] = 0;
             }
 
             let result = []
             for (let r=0; r<numRounds; r++) {
-                console.log({r, teamName})
-                const round = generateNextRound(players, numCourts);
+                const round = generateNextRound(players, numCourts, pairCount);
                 result.push(round);
             }
 
-            displayTeam(teamName, result, numCourts, numRounds, players);
+            display.team(teamName, result, numCourts, numRounds, players);
+
+            for (let i=0; i<pairCount.length; i++) {
+                if (pairCount[i] > 1) {
+                    //const t = teamName.charAt(0);
+                    //console.log(`${pairCount[i]}x dup (${t}${(i % numPlayers)+1}, ${t}${1+Math.floor(i / numPlayers)})`);
+                }
+            }
+
+            return result;
+        }
+
+        function countDuplicatesDraw(homeRounds, awayRounds, numHomePlayers, numAwayPlayers) {
+            const dups = new Array(numAwayPlayers*numAwayPlayers*numHomePlayers*numHomePlayers);
+            for (let i=0; i<dups.length; i++) {
+                dups[i] = 0;
+            }
+
+            let result = 0;
+            for (let i=0; i<homeRounds.length; i++) {
+                const home = homeRounds[i];
+                const away = awayRounds[i];
+
+                for (let j=0; j<home.length; j+=2) {
+                    const h1 = home[j].index;
+                    const h2 = home[j+1].index;
+                    const a1 = away[j].index;
+                    const a2 = away[j+1].index;
+
+                    const hMin = Math.min(h1, h2);
+                    const hMax = Math.max(h1, h2);
+                    const hIndex = hMin * numHomePlayers + hMax;
+
+                    const aMin = Math.min(a1, a2);
+                    const aMax = Math.max(a1, a2);
+                    const aIndex = aMin * numHomePlayers + aMax;
+
+                    const index = (hIndex * numAwayPlayers * numAwayPlayers) + aIndex;
+                    dups[index]++;
+
+                    if (dups[index] > 1) {
+                        //console.warn('duplicate', h1, h2, a1, a2, dups[index]);
+                        result += dups[index]*dups[index]*dups[index];
+                    }
+                }
+            }
+
 
             return result;
         }
@@ -190,11 +285,28 @@
             const numCourts = inputVal("numberOfCourts");
             const numRounds = inputVal("numberOfRounds");
 
-            console.log({numHomePlayers, numAwayPlayers, numCourts, numRounds});
+            let bestHomeRounds = []
+            let bestAwayRounds = [];
+            let bestDuplicateCount = 100000;
 
-            const homeRounds = regenerateTeam("Home", numHomePlayers, numCourts, numRounds);
-            const awayRounds = regenerateTeam("Away", numAwayPlayers, numCourts, numRounds);
-            displayRounds(homeRounds, awayRounds, numCourts, numRounds);
+            const maxTries = 100;
+            for (let i=0; i<maxTries; i++) {
+                const homeRounds = regenerateTeam("Home", numHomePlayers, numCourts, numRounds);
+                const awayRounds = regenerateTeam("Away", numAwayPlayers, numCourts, numRounds);
+                const c = countDuplicatesDraw(homeRounds, awayRounds, numHomePlayers, numAwayPlayers);
+
+                if (c === 0) {
+                    bestHomeRounds = homeRounds;
+                    bestAwayRounds = awayRounds;
+                    break;
+                } else if (c < bestDuplicateCount) {
+                    bestHomeRounds = homeRounds;
+                    bestAwayRounds = awayRounds;
+                    bestDuplicateCount = c;
+                }
+            }
+
+            display.rounds(bestHomeRounds, bestAwayRounds, numCourts, numRounds);
         }
     </script>
 
