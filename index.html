@@ -154,14 +154,14 @@
             return shuffle(result);
         }
 
-        function countDuplicates(round, pairCount, playerCount) {
+        function countDuplicates(round, pairCount) {
             let result = 0;
             for (let i=0; i<round.length; i+= 2) {
                 const p1 = round[i].index;
                 const p2 = round[i+1].index;
                 const min = Math.min(p1, p2);
                 const max = Math.max(p1, p2);
-                const c = pairCount[min*playerCount + max];
+                const c = pairCount[min][max];
                 if (c > 0) {
                     result += (c+1)*(c+1)*(c+1);
                 }
@@ -177,7 +177,7 @@
             const maxTries = 1000;
             for (let i=0; i<maxTries; i++) {
                 const round = selectOptimalPlayers(players, numCourts*2);
-                const numDuplicates = countDuplicates(round, pairCount, players.length);
+                const numDuplicates = countDuplicates(round, pairCount);
 
                 if (numDuplicates === 0) {
                     bestRound = round;
@@ -193,7 +193,7 @@
                 const p2 = bestRound[i+1].index;
                 const min = Math.min(p1, p2);
                 const max = Math.max(p1, p2);
-                pairCount[min*players.length + max]++;
+                pairCount[min][max]++;
             }
 
             for (let i=0; i<numCourts*2; i++) {
@@ -217,9 +217,9 @@
             }
 
             // keep track of the number of times each pair of players happens
-            const pairCount = new Array(numPlayers * numPlayers);
-            for (let i=0; i<numPlayers*numPlayers; i++) {
-                pairCount[i] = 0;
+            const pairCount = new Array(numPlayers);
+            for (let i=0; i<numPlayers; i++) {
+                pairCount[i] = new Array(numPlayers).fill(0);
             }
 
             let result = []
@@ -230,20 +230,19 @@
 
             display.team(teamName, result, numCourts, numRounds, players);
 
-            for (let i=0; i<pairCount.length; i++) {
-                if (pairCount[i] > 1) {
-                    //const t = teamName.charAt(0);
-                    //console.log(`${pairCount[i]}x dup (${t}${(i % numPlayers)+1}, ${t}${1+Math.floor(i / numPlayers)})`);
-                }
-            }
-
             return result;
         }
 
         function countDuplicatesDraw(homeRounds, awayRounds, numHomePlayers, numAwayPlayers) {
-            const dups = new Array(numAwayPlayers*numAwayPlayers*numHomePlayers*numHomePlayers);
-            for (let i=0; i<dups.length; i++) {
-                dups[i] = 0;
+            const gameCount = new Array(numHomePlayers);
+            for (let h1 = 0; h1 < numHomePlayers; h1++) {
+                gameCount[h1] = new Array(numHomePlayers);
+                for (let h2 = 0; h2 < numHomePlayers; h2++) {
+                    gameCount[h1][h2] = new Array(numAwayPlayers);
+                    for (let a1 = 0; a1 < numAwayPlayers; a1++) {
+                        gameCount[h1][h2][a1] = new Array(numAwayPlayers).fill(0);
+                    }
+                }
             }
 
             let result = 0;
@@ -254,23 +253,19 @@
                 for (let j=0; j<home.length; j+=2) {
                     const h1 = home[j].index;
                     const h2 = home[j+1].index;
-                    const a1 = away[j].index;
-                    const a2 = away[j+1].index;
-
                     const hMin = Math.min(h1, h2);
                     const hMax = Math.max(h1, h2);
-                    const hIndex = hMin * numHomePlayers + hMax;
 
+                    const a1 = away[j].index;
+                    const a2 = away[j+1].index;
                     const aMin = Math.min(a1, a2);
                     const aMax = Math.max(a1, a2);
-                    const aIndex = aMin * numHomePlayers + aMax;
 
-                    const index = (hIndex * numAwayPlayers * numAwayPlayers) + aIndex;
-                    dups[index]++;
+                    gameCount[hMin][hMax][aMin][aMax]++;
+                    const c = gameCount[hMin][hMax][aMin][aMax];
 
-                    if (dups[index] > 1) {
-                        //console.warn('duplicate', h1, h2, a1, a2, dups[index]);
-                        result += dups[index]*dups[index]*dups[index];
+                    if (c > 1) {
+                        result += c*c*c;
                     }
                 }
             }
@@ -279,7 +274,7 @@
             return result;
         }
 
-        function regenerate() {
+        function doRegenerate() {
             const numHomePlayers = inputVal("numberOfHomePlayers");
             const numAwayPlayers = inputVal("numberOfAwayPlayers");
             const numCourts = inputVal("numberOfCourts");
@@ -293,20 +288,36 @@
             for (let i=0; i<maxTries; i++) {
                 const homeRounds = regenerateTeam("Home", numHomePlayers, numCourts, numRounds);
                 const awayRounds = regenerateTeam("Away", numAwayPlayers, numCourts, numRounds);
-                const c = countDuplicatesDraw(homeRounds, awayRounds, numHomePlayers, numAwayPlayers);
+                const curDuplicateCount = countDuplicatesDraw(homeRounds, awayRounds, numHomePlayers, numAwayPlayers);
 
-                if (c === 0) {
+                if (curDuplicateCount < bestDuplicateCount) {
                     bestHomeRounds = homeRounds;
                     bestAwayRounds = awayRounds;
+                    bestDuplicateCount = curDuplicateCount;
+                }
+
+                if (bestDuplicateCount === 0) {
                     break;
-                } else if (c < bestDuplicateCount) {
-                    bestHomeRounds = homeRounds;
-                    bestAwayRounds = awayRounds;
-                    bestDuplicateCount = c;
                 }
             }
 
+            if (bestDuplicateCount > 0) {
+                console.warn('Has duplicate games', bestDuplicateCount);
+            } else {
+                console.log('Done with no duplicates');
+            }
+
             display.rounds(bestHomeRounds, bestAwayRounds, numCourts, numRounds);
+        }
+
+        function regenerate() {
+            const resultsDiv = document.getElementById("resultsDiv");
+            resultsDiv.style.visibility = 'hidden';
+
+            setTimeout(() => {
+                doRegenerate();
+                resultsDiv.style.visibility = '';
+            }, 0);
         }
     </script>
 
@@ -341,35 +352,37 @@
 
     </form>
 
-    <table id="rounds">
-        <thead>
-        <tr id="roundsHead">
+    <div id="resultsDiv">
+        <table id="rounds">
+            <thead>
+            <tr id="roundsHead">
 
-        </tr>
-        </thead>
-        <tbody id="roundsBody">
+            </tr>
+            </thead>
+            <tbody id="roundsBody">
 
-        </tbody>
-    </table>
-    <br/>
+            </tbody>
+        </table>
+        <br/>
 
-    <table id="HomePlayers">
-        <thead>
-        <tr id="HomePlayersHead">
-        </tr>
-        </thead>
-        <tbody id="HomePlayersBody">
-        </tbody>
-    </table>
-    <br/>
+        <table id="HomePlayers">
+            <thead>
+            <tr id="HomePlayersHead">
+            </tr>
+            </thead>
+            <tbody id="HomePlayersBody">
+            </tbody>
+        </table>
+        <br/>
 
-    <table id="AwayPlayers">
-        <thead>
-        <tr id="AwayPlayersHead">
-        </tr>
-        </thead>
-        <tbody id="AwayPlayersBody">
-        </tbody>
-    </table>
+        <table id="AwayPlayers">
+            <thead>
+            <tr id="AwayPlayersHead">
+            </tr>
+            </thead>
+            <tbody id="AwayPlayersBody">
+            </tbody>
+        </table>
+    </div>
 </body>
 </html>
