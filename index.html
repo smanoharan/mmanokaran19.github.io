@@ -274,6 +274,36 @@
             return result;
         }
 
+        function printDuplicates(teamName, rounds, numPlayers) {
+            const pairs = new Array(numPlayers);
+            for (let i=0; i<numPlayers; i++) {
+                pairs[i] = new Array(numPlayers);
+                for (let j = 0; j < numPlayers; j++) {
+                    pairs[i][j] = [];
+                }
+            }
+
+            for (let i=0; i<rounds.length; i++) {
+                const round = rounds[i];
+                for (let j=0; j<round.length; j+=2) {
+                    const p1 = round[j].index;
+                    const p2 = round[j+1].index;
+                    const min = Math.min(p1, p2);
+                    const max = Math.max(p1, p2);
+                    pairs[min][max].push(i+1);
+                }
+            }
+
+            for (let i=0; i<numPlayers; i++) {
+                for (let j = 0; j < numPlayers; j++) {
+                    if (pairs[i][j].length > 1) {
+                        const t = teamName.charAt(0)
+                        console.log(`Duplicate ${t}${i+1}, ${t}${j+1}: `, pairs[i][j]);
+                    }
+                }
+            }
+        }
+
         function doRegenerate() {
             const numHomePlayers = inputVal("numberOfHomePlayers");
             const numAwayPlayers = inputVal("numberOfAwayPlayers");
@@ -304,10 +334,13 @@
             if (bestDuplicateCount > 0) {
                 console.warn('Has duplicate games', bestDuplicateCount);
             } else {
-                console.log('Done with no duplicates');
+                console.log('Done with no duplicate games');
             }
 
             display.rounds(bestHomeRounds, bestAwayRounds, numCourts, numRounds);
+
+            printDuplicates("Home", bestHomeRounds, numHomePlayers);
+            printDuplicates("Away", bestAwayRounds, numAwayPlayers);
         }
 
         function regenerate() {
