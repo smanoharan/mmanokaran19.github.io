@@ -1,19 +1,161 @@
 <html>
 <head>
     <title>Badminton Scheduler</title>
+    <style>
+        .selected-team-button {
+            font-weight: bold;
+            color:blue;
+        }
+    </style>
     <script type="text/javascript">
+        class Display {
+            addCell(row, text) {
+                const cellElem = document.createElement('td');
+                cellElem.innerText = text;
+                row.appendChild(cellElem);
+                return cellElem;
+            }
+
+            addHeader(row, html, colSpan=1, rowSpan=1) {
+                const cellElem = document.createElement('th');
+                cellElem.innerHTML = html;
+                cellElem.colSpan = colSpan;
+                cellElem.rowSpan = rowSpan;
+                row.appendChild(cellElem);
+            }
+
+            findAndCleanTablePart(teamName, partName) {
+                const part = document.getElementById(teamName + partName);
+                part.innerHTML = '';
+                return part;
+            }
+
+            addRow(parent) {
+                const row = document.createElement('tr');
+                parent.appendChild(row);
+                return row;
+            }
+
+            doRounds(homeRounds, awayRounds, numCourts, numRounds, awayOffset) {
+                const headRow = document.getElementById("roundsHead");
+                headRow.innerHTML = '<th>Draw</th>';
+
+                for (let i=0; i<numCourts; i++) {
+                    this.addHeader(headRow, `Court ${i+1}`, 3, 1);
+                }
+
+                const body = document.getElementById("roundsBody");
+                body.innerHTML = '';
+
+                for (let roundIndex=0; roundIndex<numRounds; roundIndex++) {
+                    const upperRow = this.addRow(body);
+                    const lowerRow = this.addRow(body);
+
+                    this.addHeader(upperRow, `Round ${roundIndex+1}`, 1, 2);
+                    for (let courtIndex=0; courtIndex<numCourts; courtIndex++) {
+                        const playerIndex = courtIndex * 2;
+                        this.addCell(upperRow, homeRounds[roundIndex][playerIndex].name);
+                        this.addCell(upperRow, homeRounds[roundIndex][playerIndex+1].name);
+                        this.addCell(upperRow, '');
+
+                        this.addCell(lowerRow, awayRounds[roundIndex][playerIndex+awayOffset].name);
+                        this.addCell(lowerRow, awayRounds[roundIndex][playerIndex+1+awayOffset].name);
+                        this.addCell(lowerRow, '');
+                    }
+                }
+            }
+
+            roundsTwoTeam(homeRounds, awayRounds, numCourts, numRounds) {
+                this.doRounds(homeRounds, awayRounds, numCourts, numRounds, 0);
+            }
+
+            roundsOneTeam(rounds, numCourts, numRounds) {
+                this.doRounds(rounds, rounds, numCourts, numRounds, 2);
+            }
+
+            team(teamName, rounds, numCourts, numRounds, players, numberOfPlayersPerCourt) {
+                const headRow = this.findAndCleanTablePart(teamName, "PlayersHead");
+                this.addHeader(headRow, "Courts for " + teamName);
+                for (let i=0; i<players.length; i++) {
+                    this.addHeader(headRow, players[i].name);
+                }
+
+                const body = this.findAndCleanTablePart(teamName, "PlayersBody");
+                for (let roundIndex=0; roundIndex<numRounds; roundIndex++) {
+                    const row = this.addRow(body);
+                    this.addHeader(row, `Round ${roundIndex+1}`);
+
+                    for (let i=0; i<players.length; i++) {
+                        const courtIndex = players[i].findCourt(rounds[roundIndex], numCourts, numberOfPlayersPerCourt);
+                        this.addCell(row, courtIndex === undefined ? '' : `C${courtIndex+1}`);
+                    }
+                }
+
+                const row = this.addRow(body);
+                this.addHeader(row, `Games Played`);
+                for (let i=0; i<players.length; i++) {
+                    this.addHeader(row, players[i].numGamesPlayed);
+                }
+            }
+
+            pairs(teamName, rounds, players) {
+                const numPlayers = players.length;
+
+                const headRow = this.findAndCleanTablePart(teamName, "PairsHead");
+                this.addHeader(headRow, teamName + " Pairs");
+                for (let i=0; i<players.length; i++) {
+                    this.addHeader(headRow, players[i].name);
+                }
+
+                const body = this.findAndCleanTablePart(teamName, "PairsBody");
+                for (let i=0; i<players.length; i++) {
+                    const row = this.addRow(body);
+                    this.addHeader(row, players[i].name);
+
+                    for (let j=0; j<players.length; j++) {
+                        const iIdx = players[i].index;
+                        const jIdx = players[j].index;
+                        const minIndex = Math.min(iIdx, jIdx);
+                        const maxIndex = Math.max(iIdx, jIdx);
+
+                        let pairUps = [];
+
+                        for (let k=0; k<rounds.length; k++) {
+                            const round = rounds[k];
+                            for (let m=0; m<round.length; m+=2) {
+                                const p1 = round[m].index;
+                                const p2 = round[m+1].index;
+                                if (minIndex === Math.min(p1, p2) && maxIndex == Math.max(p1, p2)) {
+                                    pairUps.push(k+1);
+                                }                
+                            }
+                        }
+                        const cell = this.addCell(row, pairUps.join(", "));
+                        if (pairUps.length > 1) {
+                            cell.style = "font-weight: bold";
+                        }
+                    }
+                }
+            }
+        }
+
+        const display = new Display();
+
         class Player {
-            constructor(name) {
+            constructor(index, name) {
+                this.index = index;
                 this.name = name;
                 this.numGamesPlayed = 0;
                 this.numConsecutiveGamesPlayed = 0;
             }
 
-            findCourt(round, numCourts) {
+            findCourt(round, numCourts, numberOfPlayersPerCourt) {
                 for (let courtIndex=0; courtIndex<numCourts; courtIndex++) {
-                    const playerIndex = courtIndex*2;
-                    if (round[playerIndex].name === this.name || round[playerIndex+1].name === this.name) {
-                        return courtIndex;
+                    const playerIndex = courtIndex*numberOfPlayersPerCourt;
+                    for (let i=0; i<numberOfPlayersPerCourt; i++) {
+                        if (round[playerIndex+i].name === this.name) {
+                            return courtIndex;
+                        }
                     }
                 }
                 return undefined;
@@ -54,7 +196,6 @@
 
             const priorities = uniqSortedRev(players.map(p => p.priority(maxGamesPlayed)));
             const playersByPriority = priorities.map(p => players.filter(player => player.priority(maxGamesPlayed) === p));
-            console.log({priorities, playersByPriority});
 
             const result = [];
             for (let players of playersByPriority) {
@@ -70,131 +211,267 @@
             return shuffle(result);
         }
 
-        function generateNextRound(players, numCourts) {
-            const currentRoundPlayers = selectOptimalPlayers(players, numCourts*2);
+        function countDuplicates(round, pairCount) {
+            let result = 0;
+            for (let i=0; i<round.length; i+= 2) {
+                const p1 = round[i].index;
+                const p2 = round[i+1].index;
+                const min = Math.min(p1, p2);
+                const max = Math.max(p1, p2);
+                const c = pairCount[min][max];
+                if (c > 0) {
+                    result += (c+1)*(c+1)*(c+1);
+                }
+            }
 
-            for (let i=0; i<numCourts*2; i++) {
-                currentRoundPlayers[i].numGamesPlayed++;
-                currentRoundPlayers[i].numConsecutiveGamesPlayed++;
+            return result;
+        }
+
+        function generateNextRound(players, numCourts, pairCount, numberOfPlayersPerCourt) {
+            let bestRound = [];
+            let bestDuplicateCount = 1000000;
+
+            const maxTries = 1000;
+            for (let i=0; i<maxTries; i++) {
+                const round = selectOptimalPlayers(players, numCourts*numberOfPlayersPerCourt);
+                const numDuplicates = countDuplicates(round, pairCount);
+
+                if (numDuplicates === 0) {
+                    bestRound = round;
+                    break;
+                } else if (numDuplicates < bestDuplicateCount) {
+                    bestRound = round;
+                    bestDuplicateCount = numDuplicates;
+                }
+            }
+
+            for (let i=0; i<bestRound.length; i+= 2) {
+                const p1 = bestRound[i].index;
+                const p2 = bestRound[i+1].index;
+                const min = Math.min(p1, p2);
+                const max = Math.max(p1, p2);
+                pairCount[min][max]++;
+            }
+
+            for (let i=0; i<numCourts*numberOfPlayersPerCourt; i++) {
+                bestRound[i].numGamesPlayed++;
+                bestRound[i].numConsecutiveGamesPlayed++;
             }
             for (let i=0; i<players.length; i++) {
-                const isPlaying = currentRoundPlayers.find(player => player.name === players[i].name);
+                const isPlaying = bestRound.find(player => player.name === players[i].name);
                 if (!isPlaying) {
                     players[i].numConsecutiveGamesPlayed = 0;
                 }
             }
 
-            return currentRoundPlayers;
+            return bestRound;
         }
 
-        function addCell(row, text) {
-            const cellElem = document.createElement('td');
-            cellElem.innerText = text;
-            row.appendChild(cellElem);
-        }
-
-        function addHeader(row, html, colSpan=1, rowSpan=1) {
-            const cellElem = document.createElement('th');
-            cellElem.innerHTML = html;
-            cellElem.colSpan = colSpan;
-            cellElem.rowSpan = rowSpan;
-            row.appendChild(cellElem);
-        }
-
-        function displayRounds(homeRounds, awayRounds, numCourts, numRounds) {
-            const headRow = document.getElementById("roundsHead");
-            headRow.innerHTML = '<th>Draw</th>';
-
-            for (let i=0; i<numCourts; i++) {
-                addHeader(headRow, `Court ${i+1}`, 3, 1);
-            }
-
-            const body = document.getElementById("roundsBody");
-            body.innerHTML = '';
-
-            for (let roundIndex=0; roundIndex<numRounds; roundIndex++) {
-                const upperRow = document.createElement('tr');
-                const lowerRow = document.createElement('tr');
-
-                addHeader(upperRow, `Round ${roundIndex+1}`, 1, 2);
-                for (let courtIndex=0; courtIndex<numCourts; courtIndex++) {
-                    const playerIndex = courtIndex * 2;
-                    addCell(upperRow, homeRounds[roundIndex][playerIndex].name);
-                    addCell(upperRow, homeRounds[roundIndex][playerIndex+1].name);
-                    addCell(upperRow, '');
-
-                    addCell(lowerRow, awayRounds[roundIndex][playerIndex].name);
-                    addCell(lowerRow, awayRounds[roundIndex][playerIndex+1].name);
-                    addCell(lowerRow, '');
-                }
-
-                body.appendChild(upperRow);
-                body.appendChild(lowerRow);
-            }
-        }
-
-        function displayTeam(teamName, rounds, numCourts, numRounds, players) {
-            const headRow = document.getElementById(teamName + "PlayersHead");
-            headRow.innerHTML = '';
-
-            addHeader(headRow, teamName);
-            for (let i=0; i<players.length; i++) {
-                addHeader(headRow, players[i].name);
-            }
-
-            const body = document.getElementById(teamName + "PlayersBody");
-            console.log({body, name: teamName + "PlayersBody"});
-            body.innerHTML = '';
-
-            for (let roundIndex=0; roundIndex<numRounds; roundIndex++) {
-                const row = document.createElement('tr');
-                addHeader(row, `Round ${roundIndex+1}`);
-
-                for (let i=0; i<players.length; i++) {
-                    const courtIndex = players[i].findCourt(rounds[roundIndex], numCourts);
-                    addCell(row, courtIndex === undefined ? '' : `C${courtIndex+1}`);
-                }
-
-                body.appendChild(row);
-            }
-
-            const row = document.createElement('tr');
-            addHeader(row, `Games Played`);
-            for (let i=0; i<players.length; i++) {
-                addHeader(row, players[i].numGamesPlayed);
-            }
-            body.appendChild(row);
-        }
-
-        function regenerateTeam(teamName, numPlayers, numCourts, numRounds) {
+        function regenerateTeam(teamName, numPlayers, numCourts, numRounds, numberOfPlayersPerCourt) {
             const players = [];
             for (let i = 0; i < numPlayers; i++) {
-                players.push(new Player(teamName[0] + (i+1)));
+                players.push(new Player(i, teamName[0] + (i+1)));
+            }
+
+            // keep track of the number of times each pair of players happens
+            const pairCount = new Array(numPlayers);
+            for (let i=0; i<numPlayers; i++) {
+                pairCount[i] = new Array(numPlayers).fill(0);
             }
 
             let result = []
             for (let r=0; r<numRounds; r++) {
-                console.log({r, teamName})
-                const round = generateNextRound(players, numCourts);
+                const round = generateNextRound(players, numCourts, pairCount, numberOfPlayersPerCourt);
                 result.push(round);
             }
 
-            displayTeam(teamName, result, numCourts, numRounds, players);
+            display.team(teamName, result, numCourts, numRounds, players, numberOfPlayersPerCourt);
+            display.pairs(teamName, result, players);
 
             return result;
         }
 
-        function regenerate() {
-            const numHomePlayers = inputVal("numberOfHomePlayers");
-            const numAwayPlayers = inputVal("numberOfAwayPlayers");
-            const numCourts = inputVal("numberOfCourts");
+    function countDuplicatesOneTeamDraw(rounds, numPlayers) {
+        const gameCount = new Array(numPlayers);
+        for (let h1 = 0; h1 < numPlayers; h1++) {
+            gameCount[h1] = new Array(numPlayers);
+            for (let h2 = 0; h2 < numPlayers; h2++) {
+                gameCount[h1][h2] = new Array(numPlayers);
+                for (let a1 = 0; a1 < numPlayers; a1++) {
+                    gameCount[h1][h2][a1] = new Array(numPlayers).fill(0);
+                }
+            }
+        }
+
+        let result = 0;
+        for (let i=0; i<rounds.length; i++) {
+            for (let j=0; j<rounds[i].length; j+=4) {
+                const h1 = rounds[i][j].index;
+                const h2 = rounds[i][j+1].index;
+                
+                const hMin = Math.min(h1, h2);
+                const hMax = Math.max(h1, h2);
+
+                const a1 = rounds[i][j+2].index;
+                const a2 = rounds[i][j+3].index;
+                const aMin = Math.min(a1, a2);
+                const aMax = Math.max(a1, a2);
+
+                gameCount[hMin][hMax][aMin][aMax]++;
+                const c = gameCount[hMin][hMax][aMin][aMax];
+
+                if (c > 1) {
+                    result += c*c*c;
+                }
+            }
+        }
+
+
+        return result;
+    }
+
+        function countDuplicatesTwoTeamDraw(homeRounds, awayRounds, numHomePlayers, numAwayPlayers) {
+            const gameCount = new Array(numHomePlayers);
+            for (let h1 = 0; h1 < numHomePlayers; h1++) {
+                gameCount[h1] = new Array(numHomePlayers);
+                for (let h2 = 0; h2 < numHomePlayers; h2++) {
+                    gameCount[h1][h2] = new Array(numAwayPlayers);
+                    for (let a1 = 0; a1 < numAwayPlayers; a1++) {
+                        gameCount[h1][h2][a1] = new Array(numAwayPlayers).fill(0);
+                    }
+                }
+            }
+
+            let result = 0;
+            for (let i=0; i<homeRounds.length; i++) {
+                const home = homeRounds[i];
+                const away = awayRounds[i];
+
+                for (let j=0; j<home.length; j+=2) {
+                    const h1 = home[j].index;
+                    const h2 = home[j+1].index;
+                    const hMin = Math.min(h1, h2);
+                    const hMax = Math.max(h1, h2);
+
+                    const a1 = away[j].index;
+                    const a2 = away[j+1].index;
+                    const aMin = Math.min(a1, a2);
+                    const aMax = Math.max(a1, a2);
+
+                    gameCount[hMin][hMax][aMin][aMax]++;
+                    const c = gameCount[hMin][hMax][aMin][aMax];
+
+                    if (c > 1) {
+                        result += c*c*c;
+                    }
+                }
+            }
+
+
+            return result;
+        }
+
+        function doRegenerate() {
+            const numTeams = inputVal("numberOfTeams");
+            let numCourts = inputVal("numberOfCourts");
             const numRounds = inputVal("numberOfRounds");
 
-            console.log({numHomePlayers, numAwayPlayers, numCourts, numRounds});
 
-            const homeRounds = regenerateTeam("Home", numHomePlayers, numCourts, numRounds);
-            const awayRounds = regenerateTeam("Away", numAwayPlayers, numCourts, numRounds);
-            displayRounds(homeRounds, awayRounds, numCourts, numRounds);
+            let bestDuplicateCount = 100000;
+            const maxTries = 100;
+
+            if (numTeams == 1) {
+                const numPlayers = inputVal("numberOfPlayers");
+                const maxCourts = Math.floor(numPlayers / 4);
+                numCourts = Math.min(numCourts, maxCourts);
+
+                let bestRounds = [];
+
+                for (let i=0; i<maxTries; i++) {
+                    const rounds = regenerateTeam("Home", numPlayers, numCourts, numRounds, 4);
+                    const curDuplicateCount = countDuplicatesOneTeamDraw(rounds, numPlayers);
+
+                    if (curDuplicateCount < bestDuplicateCount) {
+                        bestRounds = rounds;
+                        bestDuplicateCount = curDuplicateCount;
+                    }
+
+                    if (bestDuplicateCount === 0) {
+                        break;
+                    }
+                }
+
+                display.roundsOneTeam(bestRounds, numCourts, numRounds);
+
+            } else {
+                const numHomePlayers = inputVal("numberOfHomePlayers");
+                const numAwayPlayers = inputVal("numberOfAwayPlayers");
+                const maxCourts = Math.floor(Math.min(numHomePlayers, numAwayPlayers) / 2);
+                numCourts = Math.min(numCourts, maxCourts);
+                let bestHomeRounds = [];
+                let bestAwayRounds = [];
+
+                for (let i=0; i<maxTries; i++) {
+                    const homeRounds = regenerateTeam("Home", numHomePlayers, numCourts, numRounds, 2);
+                    const awayRounds = regenerateTeam("Away", numAwayPlayers, numCourts, numRounds, 2);
+                    const curDuplicateCount = countDuplicatesTwoTeamDraw(homeRounds, awayRounds, numHomePlayers, numAwayPlayers);
+
+                    if (curDuplicateCount < bestDuplicateCount) {
+                        bestHomeRounds = homeRounds;
+                        bestAwayRounds = awayRounds;
+                        bestDuplicateCount = curDuplicateCount;
+                    }
+
+                    if (bestDuplicateCount === 0) {
+                        break;
+                    }
+                }
+
+                display.roundsTwoTeam(bestHomeRounds, bestAwayRounds, numCourts, numRounds);
+            }
+        }
+
+        function regenerate() {
+            const resultsDiv = document.getElementById("resultsDiv");
+            resultsDiv.style.visibility = 'hidden';
+
+            setTimeout(() => {
+                doRegenerate();
+                resultsDiv.style.visibility = '';
+            }, 0);
+        }
+
+        function SetNumberOfTeams(count) {
+            const selectedClassName = "selected-team-button";
+            const numberOfTeams = document.getElementById("numberOfTeams");
+            const button1 = document.getElementById("team-button-1");
+            const button2 = document.getElementById("team-button-2");
+
+            const fields1 = document.getElementById("one-player-fields");
+            const fields2 = document.getElementById("two-player-fields");
+
+            const awayPlayers = document.getElementById("AwayPlayers");
+            const awayPairs = document.getElementById("AwayPairs");
+
+            if (count == 1) {
+                button1.classList.add(selectedClassName);
+                button2.classList.remove(selectedClassName);
+                fields1.style.display = 'block';
+                fields2.style.display = 'none';
+                awayPlayers.style.display = 'none';
+                awayPairs.style.display = 'none';
+                numberOfTeams.value = "1";
+            } else {
+                button1.classList.remove(selectedClassName);
+                button2.classList.add(selectedClassName);
+                fields1.style.display = 'none';
+                fields2.style.display = 'block';
+                awayPlayers.style.display = 'table';
+                awayPairs.style.display = 'table';
+                numberOfTeams.value = "2";
+            }
+
+            regenerate();
         }
     </script>
 
@@ -209,55 +486,94 @@
     </style>
 </head>
 <body onload="regenerate()">
-    <form>
+    <div>
         Number of Courts
         <input type="number" value="4" id="numberOfCourts" onchange="regenerate()"/>
         </br>
         </br>
 
-        Number of Home Players
-        <input type="number" value="11" id="numberOfHomePlayers" onchange="regenerate()"/>
-        </br>
+        Number of Teams
+        <input type="hidden" value="2" id="numberOfTeams" onchange="regenerate()"/>
+        <button id="team-button-1" onclick="SetNumberOfTeams(1)">One</button>
+        <button id="team-button-2" class="selected-team-button" onclick="SetNumberOfTeams(2)">Two</button>
+        <br/>
 
-        Number of Away Players
-        <input type="number" value="11" id="numberOfAwayPlayers" onchange="regenerate()"/>
-        </br>
-        </br>
+        <span id="one-player-fields" style="display: none;">
+            Number of Players
+            <input type="number" value="11" id="numberOfPlayers" onchange="regenerate()"/>
+            <br/>
+        </span>
+        <span id="two-player-fields" style="display: inline">
+            Number of Home Players
+            <input type="number" value="11" id="numberOfHomePlayers" onchange="regenerate()"/>
+            </br>
+
+            Number of Away Players
+            <input type="number" value="11" id="numberOfAwayPlayers" onchange="regenerate()"/>
+            </br>
+        </span>
+        <br/>
 
         Number of Rounds to Generate
         <input type="number" value="16" id="numberOfRounds" onchange="regenerate()"/>
 
-    </form>
+    </div>
 
-    <table id="rounds">
-        <thead>
-        <tr id="roundsHead">
+    <div id="resultsDiv">
+        <table id="rounds">
+            <thead>
+            <tr id="roundsHead">
 
-        </tr>
-        </thead>
-        <tbody id="roundsBody">
+            </tr>
+            </thead>
+            <tbody id="roundsBody">
 
-        </tbody>
-    </table>
-    <br/>
+            </tbody>
+        </table>
+        <br/>
 
-    <table id="HomePlayers">
-        <thead>
-        <tr id="HomePlayersHead">
-        </tr>
-        </thead>
-        <tbody id="HomePlayersBody">
-        </tbody>
-    </table>
-    <br/>
+        <table id="HomePlayers">
+            <thead>
+            <tr id="HomePlayersHead">
+            </tr>
+            </thead>
+            <tbody id="HomePlayersBody">
+            </tbody>
+        </table>
+        <br/>
 
-    <table id="AwayPlayers">
-        <thead>
-        <tr id="AwayPlayersHead">
-        </tr>
-        </thead>
-        <tbody id="AwayPlayersBody">
-        </tbody>
-    </table>
+        <table id="AwayPlayers">
+            <thead>
+            <tr id="AwayPlayersHead">
+            </tr>
+            </thead>
+            <tbody id="AwayPlayersBody">
+            </tbody>
+        </table>
+
+        <br/>
+
+        <table id="HomePairs">
+            <thead>
+            <tr id="HomePairsHead">
+            </tr>
+            </thead>
+            <tbody id="HomePairsBody">
+            </tbody>
+        </table>
+
+        <br/>
+
+        <table id="AwayPairs">
+            <thead>
+            <tr id="AwayPairsHead">
+            </tr>
+            </thead>
+            <tbody id="AwayPairsBody">
+            </tbody>
+        </table>
+
+        <br/>
+    </div>
 </body>
 </html>
