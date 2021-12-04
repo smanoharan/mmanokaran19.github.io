@@ -6,6 +6,28 @@
             font-weight: bold;
             color:blue;
         }
+
+        table, td, th {
+            border: 1px solid black;
+        }
+
+        td {
+            min-width: 50px;
+        }
+
+        @media print {
+            .hide-on-print {
+                display: none;
+            }
+
+            .page-break {
+                page-break-after: always;
+            }
+
+            br {
+                display: none;
+            }
+        }
     </style>
     <script type="text/javascript">
         class Display {
@@ -127,7 +149,7 @@
                                 const p2 = round[m+1].index;
                                 if (minIndex === Math.min(p1, p2) && maxIndex == Math.max(p1, p2)) {
                                     pairUps.push(k+1);
-                                }                
+                                }
                             }
                         }
                         const cell = this.addCell(row, pairUps.join(", "));
@@ -165,6 +187,9 @@
                 const reachedLimit = this.numConsecutiveGamesPlayed >= 3;
 
                 let result = this.numGamesPlayed === maxGamesPlayed ? 0 : 1000;
+                if (this.numConsecutiveGamesPlayed === 0) {
+                    result += 500;
+                }
                 result -= (reachedLimit ? this.numConsecutiveGamesPlayed : 0);
                 return result;
             }
@@ -308,7 +333,7 @@
             for (let j=0; j<rounds[i].length; j+=4) {
                 const h1 = rounds[i][j].index;
                 const h2 = rounds[i][j+1].index;
-                
+
                 const hMin = Math.min(h1, h2);
                 const hMax = Math.max(h1, h2);
 
@@ -474,19 +499,9 @@
             regenerate();
         }
     </script>
-
-    <style>
-        table, td, th {
-            border: 1px solid black;
-        }
-
-        td {
-            min-width: 50px;
-        }
-    </style>
 </head>
 <body onload="regenerate()">
-    <div>
+    <div class="hide-on-print">
         Number of Courts
         <input type="number" value="4" id="numberOfCourts" onchange="regenerate()"/>
         </br>
@@ -520,7 +535,7 @@
     </div>
 
     <div id="resultsDiv">
-        <table id="rounds">
+        <table class="page-break" id="rounds">
             <thead>
             <tr id="roundsHead">
 
@@ -530,9 +545,9 @@
 
             </tbody>
         </table>
-        <br/>
+        <br />
 
-        <table id="HomePlayers">
+        <table class="page-break" id="HomePlayers">
             <thead>
             <tr id="HomePlayersHead">
             </tr>
@@ -540,9 +555,9 @@
             <tbody id="HomePlayersBody">
             </tbody>
         </table>
-        <br/>
+        <br />
 
-        <table id="AwayPlayers">
+        <table class="page-break" id="AwayPlayers">
             <thead>
             <tr id="AwayPlayersHead">
             </tr>
@@ -550,10 +565,9 @@
             <tbody id="AwayPlayersBody">
             </tbody>
         </table>
+        <br />
 
-        <br/>
-
-        <table id="HomePairs">
+        <table class="page-break" id="HomePairs">
             <thead>
             <tr id="HomePairsHead">
             </tr>
@@ -561,8 +575,7 @@
             <tbody id="HomePairsBody">
             </tbody>
         </table>
-
-        <br/>
+        <br />
 
         <table id="AwayPairs">
             <thead>
