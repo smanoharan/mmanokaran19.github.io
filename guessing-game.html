@@ -1,0 +1,205 @@
+<html>
+    <head>
+        <title>Guess the word</title>
+        <style>
+            input {
+                width: 2rem;
+            }
+
+            /* 
+                Make the 
+                        "Sorry, the word doesn't have the letter" and 
+                        "Sorry, you have lost" 
+                messages show up in orange-red colour
+              */
+            #incorrect-guess, #game-lost {
+                color: orangered;
+            }
+
+            /* 
+                Make the 
+                        "Good Guess" and 
+                        "Great Job! You have won!" 
+                messages show up in dark-green colour
+              */
+              #correct-guess, #game-won {
+                color: darkgreen;
+            }
+        </style>
+
+        <!-- Input the list of 3000 common English words into the wordList variable array -->
+        <script src="word-list.js"></script>
+        
+        <script type="text/javascript">
+            // Limit the number of characters in each word to between 4 and 8
+            var validWords = wordList.filter(word => word.length >= 4 && word.length <= 8);
+
+            // variables:
+            var secretWord = ""; // the word that the user is trying to guess, always in lowercase
+            var secretWordLetters = []; // the secret word as a array of letters
+            var guessesRemaining = 0; // the number of guesses they have left
+
+            // all the letters that the user has guessed so far, in an array
+            // always stored in UPPER CASE
+            var guesses = []; 
+
+            var lastGuessLetter = ""; // the last letter that the user guessed
+            var lastGuessCorrect = false; // whether the last guess was correct
+
+            // whether the game is over, which means the user has run out of guesses or 
+            //      has guessed the word correctly
+            var gameOver = false; 
+
+            // Generate a random number between 0 and (max-1). 
+            // E.g. getRandomInt(3) can return 0, 1 or 2.
+            function getRandomInt(max) {
+                return Math.floor(Math.random() * max);
+            }
+
+            // Whether the user has already guessed this letter
+            function letterGuessed(letter) {
+                return guesses.includes(letter.toUpperCase()); // check whether letter is in guesses
+            }
+
+            function startGame() {
+                // pick a word at random from the valid list
+                secretWord = validWords[getRandomInt(validWords.length)];
+                secretWordLetters = [...secretWord];
+
+                // set guesses remaining based on the length of the word, longer the word, fewer the guesses
+                guessesRemaining = Math.max(5, 11 - secretWord.length);
+
+                // initialise other variables                
+                guesses = [];
+                gameOver = false;
+                lastGuessLetter = "";
+
+                updateUI();
+                // console.log({ guessesRemaining, secretWord });
+            }
+
+            function checkForGameOver() {
+                // Game is over if the user has run out of guesses (guessesRemaining = 0)
+                //      or has guessed every letter (secretWordLetters.every(letterGuessed))
+                gameOver = guessesRemaining === 0 || secretWordLetters.every(letterGuessed);
+            }
+
+            function guess() {
+                // get the letter that the user typed, in lowercase
+                const guessedLetter = document.getElementById("guess-letter").value.toLowerCase();
+                
+                // clear the textbox for next time
+                document.getElementById("guess-letter").value = "";
+                
+                // check if letter is included in the secret word
+                lastGuessCorrect = secretWordLetters.includes(guessedLetter);
+
+                // remember the last guessed letter
+                lastGuessLetter = guessedLetter; 
+                
+                // if guess was incorrect, reduce guesses remaining
+                if (!lastGuessCorrect) {
+                    guessesRemaining--;
+                }
+
+                // remember the guessed letter in our array, but make it uppercase
+                guesses.push(lastGuessLetter.toUpperCase());
+
+                checkForGameOver();
+                updateUI();
+            }
+
+            function showOrHide(id, show) {
+                // if show=true, then set display="block", which will show the element in its own line
+                // if show=false, then set display="none", which will hide the element
+                document.getElementById(id).style.display = show ? "block" : "none";
+            }
+
+            function updateButtonState() {
+                // read the current value of the textbox
+                const curLetter = document.getElementById("guess-letter").value.toUpperCase();
+
+                // disable the button if the current letter has been guessed already (or nothing is there)
+                document.getElementById("guess-button").disabled = 
+                    curLetter.length !== 1 || 
+                    (guesses.includes(curLetter));
+            }
+
+            function updateUI() {
+                // Show either correct-guess line or the incorrect-guess line or neither (if nothing is guessed yet)
+                showOrHide("correct-guess", !gameOver && lastGuessLetter !== "" && lastGuessCorrect);
+                showOrHide("incorrect-guess", !gameOver && lastGuessLetter !== "" && !lastGuessCorrect);
+
+                // Show the last guessed letter in those messages above
+                document.getElementById("correct-guess-letter").innerText = lastGuessLetter.toUpperCase();
+                document.getElementById("incorrect-guess-letter").innerText = lastGuessLetter.toUpperCase();
+
+                // Show the word as letters: 
+                //      but if the game is not yet over and the letter hasn't been guessed yet, 
+                //          show a '*' instead
+                document.getElementById("word-display").innerText = secretWordLetters.map(letter => 
+                    (gameOver || (guesses.includes(letter.toUpperCase()))) 
+                        ? letter.toUpperCase() 
+                        : "*"
+                ).join(" ");
+
+                // Show the number of guesses remaining
+                document.getElementById("guesses-remaining").innerText = guessesRemaining;
+                
+                // Show the guessed letters so far
+                document.getElementById("guess-letters").innerText = guesses.join(" ");
+
+                // If the Game is over, hide parts of the user-interface
+                showOrHide("guesses-remaining-display", !gameOver);
+                showOrHide("guess-letters", !gameOver);
+                showOrHide("letter-entry", !gameOver);
+                showOrHide("new-game-button", gameOver);
+
+                // Show or hide the Game Over messages based on whether the user has won
+                showOrHide("game-won", gameOver && secretWordLetters.every(letterGuessed));
+                showOrHide("game-lost", gameOver && !secretWordLetters.every(letterGuessed));
+            }
+        </script>
+    </head>
+
+    <!-- Start the game when the page first loads-->
+    <body onload="startGame()">
+
+        <!-- Title of the game -->
+        <h1>Guess the Word</h1>
+
+        <!-- We will only show at most one of these two H2 elements, based on if the game is won or lost -->
+        <h2 id="game-won"> Great Job! You have won! </h4>
+        <h2 id="game-lost"> Sorry, you have lost. Please try again. </h4>       
+
+        <!-- We will only show at most one of these two H4 elements, based on the last guessed letter -->            
+        <h4 id="correct-guess">
+                Good guess! The word has the letter <span id="correct-guess-letter">Z</span>
+        </h4>
+        <h4 id="incorrect-guess">
+                Sorry, The word doesn't have the letter <span id="incorrect-guess-letter">Z</span>
+        </h4>
+
+        <!-- This is the secret word -->
+        <h2 id="word-display"> * * * * *</h2>
+
+        <!-- This is the number of guesses remaining -->
+        <h4 id="guesses-remaining-display">
+            You have <span id="guesses-remaining">X</span> guesses remaining
+        </h4>
+
+        <!-- These are the letters guessed so far -->
+        <h3 id="guess-letters"> A B C </h3>
+
+        <!-- This is the texbox for the user to enter letters -->
+        <form id="letter-entry" onsubmit="event.preventDefault(); guess();">
+            <b>Type one letter</b>
+            <input id="guess-letter" type="text" maxlength="1" 
+                oninput="updateButtonState()" />
+            <button id="guess-button" type="submit">Guess</button>
+        </form>
+
+        <!-- A button to restart the game once it is finished -->
+        <button id="new-game-button" type="button" onclick="startGame()">Start new Game</button>
+    </body>
+</html>
