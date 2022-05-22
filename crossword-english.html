@@ -1,0 +1,215 @@
+<html>
+    <head>
+        <title>Crossword - English</title>
+        <style>
+            /* Make images look reasonably sized */
+            img {
+                max-width: 20vw;
+                max-height: 15vh;
+                margin: 0.5rem;
+            }
+
+            /* Make the input boxes look reasonably sized */
+            input {
+                width: 4rem;
+                height: 4rem;
+                font-size: 3rem;
+                text-align: center;
+            }
+
+            /* Indicate whether the entire crossword is correct or not */
+            .correct {
+                background-color: lightgreen;
+            }
+            .incorrect {
+                background-color: lightcoral;
+            }
+
+            /* Put the crossword grid and the 'next' button side by side */
+            #main {
+                display: flex;
+            }
+
+            /* display the input boxes in a grid */
+            #grid {
+                display: grid;
+                margin: 2rem;
+            }
+
+            /* Make the 'next' button look reasonably sized */
+            #next {
+                margin: 2rem;
+                height: 6rem;
+                align-self: center;
+                padding: 1rem;
+            }
+
+        </style>
+        
+        <!-- List of crossword puzzles -->
+        <script src="crosswords.js"></script>
+
+        <script type="text/javascript">
+            let currentCrosswordIndex = 0;
+            let inputs = [];
+
+            // return all elements that are in both arr1 and arr2
+            function intersection(arr1, arr2) {
+                return arr1.filter(el => arr2.includes(el));
+            }
+
+            function showCurrentCrossword() {
+                // find the current crossword
+                const crossword = crosswords[currentCrosswordIndex];
+
+                // get the images and words of the current crossword
+                const [[horizWord, horizImage], [vertWord, vertImage]] = Object.entries(crossword);
+
+                // figure the first letter in common between the two words
+                const commonLetter = intersection([...horizWord], [...vertWord])[0];
+
+                // hide the next button
+                document.getElementById("next").style.display = "none";
+
+                // update the title
+                document.getElementById("crossword-number").innerText = currentCrosswordIndex + 1;
+
+                // create the images
+                buildImages([horizImage, vertImage], document.getElementById("images"));
+
+                // create the grid of input boxes
+                const grid = document.getElementById("grid");
+                buildGrid(horizWord, vertWord, commonLetter, grid);
+
+                // highlight the first input
+                inputs[0].focus();
+            }
+
+            function buildImages(images, div) {
+                // clear all existing images first
+                div.innerHTML = ""; 
+
+                // create an <img> element for each image
+                for (let i of images) {
+                    const img = document.createElement("img");
+                    img.src = i;
+                    div.appendChild(img);
+                }
+            }
+
+            function validate(sender) {
+                // convert the user's input into uppercase
+                sender.target.value = (sender.target.value || "").toUpperCase();
+                
+                // is there at least one input that is still blank?
+                const someBlank = inputs.some(inp => inp.value == "");
+
+                // are all inputs set to the correct value?
+                const allCorrect = inputs.every(inp => inp.value === inp.dataset.expected);
+                
+                for (let inp of inputs) {
+                    // clear all correct/incorrect indicators
+                    inp.classList.remove("correct");
+                    inp.classList.remove("incorrect");
+
+                    if (allCorrect) {
+                        // set all inputs to the correct indicator and disable them
+                        inp.classList.add("correct");
+                        inp.disabled = true;
+                    } else if (!someBlank) {
+                        // set all inputs to the incorrect indicator
+                        inp.classList.add("incorrect");
+                    }
+                }
+
+                if (allCorrect) {
+                    // show the 'next' button and focus it
+                    const btn = document.getElementById("next");
+                    btn.style.display = "block";
+                    btn.focus();
+                    
+                }
+
+                if (someBlank) {
+                    // focus the next blank input box
+                    let curIndex = inputs.findIndex(inp => inp === sender.target);
+                    while (("" + inputs[curIndex].value).length > 0) { // while current is not blank, keep going
+                        curIndex = (curIndex + 1) % inputs.length;                        
+                    }
+                    inputs[curIndex].focus();
+                }
+            }
+
+            // build a single input box - at the specified row and column values, with the expected character
+            function buildInput(grid, exp, row, col) {
+                const inp = document.createElement("input");
+                
+
+                // only allow 1 character, set expected
+                inp.maxLength = 1;
+                inp.oninput = validate;
+                inp.dataset.expected = exp.toUpperCase();
+
+                // put it in the right place in the grid
+                inp.style.gridColumnStart = col + 1;
+                inp.style.gridColumnEnd = col + 1;
+                inp.style.gridRowStart = row + 1;
+                inp.style.gridRowEnd = row + 1;
+
+                inputs.push(inp);
+                grid.appendChild(inp);
+            }
+
+            function buildGrid(horizWord, vertWord, commonLetter, grid) {
+                // clear all existing inputs
+                grid.innerHTML = "";
+                inputs = [];
+
+                // figure out which row the horizontal word will be displayed on
+                const displayRow = vertWord.indexOf(commonLetter);
+
+                // figure out which column the vertical word will be displayed on
+                const displayCol = horizWord.indexOf(commonLetter);
+
+                // build all input boxes for the horizontal word
+                for (let i=0; i<horizWord.length; i++) {
+                    buildInput(grid, horizWord[i], displayRow, i);
+                }
+
+                // build all input boxes for the vertical word, except for the shared input box (already built by horizontal word)
+                for (let i=0; i<vertWord.length; i++) {
+                    if (i !== displayRow) { // skip this input, it has already been built by horizontal word
+                        buildInput(grid, vertWord[i], i, displayCol);
+                    }                    
+                }                
+            }
+
+            function nextCrossword() {
+                // move to the next crossword puzzle, wrapping around to the first one if we are at the last one
+                currentCrosswordIndex = (currentCrosswordIndex + 1) % crosswords.length;
+                showCurrentCrossword();
+            }
+        </script>
+    </head>
+    <body onload="showCurrentCrossword()">
+
+        <!-- Title of the game -->
+        <h1>
+            Crossword #<span id="crossword-number">1</span>            
+        </h1>
+        
+        <!-- An invisible container for all images -->
+        <div id="images"></div>
+
+        <div id="main">
+
+            <!-- An invisible container for input boxes -->
+            <div id="grid"></div>
+
+            <!-- A button to next crossword -->
+            <button id="next" type="button" onclick="nextCrossword()">
+                <h2>Next Crossword</h2>
+            </button>
+        </div>
+    </body>
+</html>
