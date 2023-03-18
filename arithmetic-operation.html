@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Arithmetic Operation</title>
+
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Arithmetic Operations Workbook">
+
+    <!--- Bootstrap Library -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-GLhlTQ8iRABdZLl6O3oVMWSktQOp6b7In1Zl3/Jr59b6EGGoI1aFkw7cmDA6j6gD" crossorigin="anonymous">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js" integrity="sha384-w76AqPfDkMBDXo30jS1Sgez6pr3x5MlQ1ZAGC+nuZB+EYdgRZgiwxhTBTkF7CXvN" crossorigin="anonymous"></script>
+
+    <style>
+        td {
+            vertical-align: baseline;
+        }
+        td.number {
+            text-align: right;
+            width: 2rem;
+        }
+        td.symbol {
+            text-align: center;
+            width: 1rem;
+            font-weight: bold;
+        }
+        td.title {
+            text-align: left;
+            color: var(--bs-purple);
+        }
+        td.answer {
+            text-align: right;
+            width: 8rem;
+        }
+    </style>
+
+
+    <script type="text/javascript">
+        function $(id) {
+            return document.getElementById(id);
+        }
+
+        function radioValue(name) {
+            return document.querySelector(`input[name="${name}"]:checked`).value;
+        }
+
+        function capitalizeFirstLetter(string) {
+            return string.charAt(0).toUpperCase() + string.slice(1);
+        }
+
+        function randomInteger(min, max) {
+            return Math.floor((Math.random() * (max - min + 1))) + min;
+        }
+
+        function make(elementType, text, className, attrs, children) {
+            const elem = document.createElement(elementType);
+            if (text) {
+                elem.innerText = text;
+            }
+            if (className) {
+                elem.classList.add(className);
+            }
+            if (attrs) {
+                for (const [k, v] of Object.entries(attrs)) {
+                    elem.setAttribute(k, v);
+                }
+            }
+
+            if (children) {
+                children.forEach(c => elem.appendChild(c));
+            }
+            return elem;
+        }
+
+        function generateAdditionQs(difficulty) {
+            const min = 1;
+            const max = difficulty === "easy" ? 20 : (difficulty === "medium" ? 99 : 999);
+
+            const a = randomInteger(min, max);
+            const b = randomInteger(min, max);
+            const ans = Math.max(a, b);
+            const first = a === b ? a - 1 : Math.min(a, b);
+            const second = ans - first;
+
+            return [first, '+', second, ans];
+        }
+
+        function generateSubtractionQs(difficulty) {
+            const min = 1;
+            const max = difficulty === "easy" ? 20 : (difficulty === "medium" ? 99 : 999);
+
+            const a = randomInteger(min, max);
+            const b = randomInteger(min, max);
+
+            const first = Math.max(a, b);
+            const second = a === b ? a - 1 : Math.min(a, b);
+            const ans = first - second;
+
+            return [first, '-', second, ans];
+        }
+
+        function generateMultiplicationQs(difficulty) {
+            const min = 2;
+            const max = difficulty === "easy" ? 6 : (difficulty === "medium" ? 12 : 20);
+
+            const first = randomInteger(min, max);
+            const second = randomInteger(min, max);
+            const ans = first * second;
+            return [first, 'x', second, ans];
+        }
+
+        function generateDivisionQs(difficulty) {
+            const min = 2;
+            const max = difficulty === "easy" ? 6 : (difficulty === "medium" ? 12 : 20);
+
+            const left = randomInteger(min, max);
+            const right = randomInteger(min, max);
+            const product = left * right;
+            return [product, '/', left, right];
+        }
+
+        function generateMixedQs(difficulty) {
+            const allowedOperations = [
+                generateAdditionQs,
+                generateSubtractionQs,
+                generateMultiplicationQs,
+                generateDivisionQs
+            ];
+
+            const selectedOperationIndex = randomInteger(0, allowedOperations.length - 1);
+            const selectedOperation =  allowedOperations[selectedOperationIndex];
+            return selectedOperation(difficulty);
+        }
+
+        function d3(num) {
+            return (""+num).padStart(3, "");
+        }
+
+        function addQuestion(qsList, difficulty, operation, num) {
+            let qs = null;
+            switch (operation) {
+                case "addition":
+                    qs = generateAdditionQs(difficulty);
+                    break;
+                case "subtraction":
+                    qs = generateSubtractionQs(difficulty);
+                    break;
+                case "multiplication":
+                    qs = generateMultiplicationQs(difficulty);
+                    break;
+                case "division":
+                    qs = generateDivisionQs(difficulty);
+                    break;
+                case "mixed":
+                    qs = generateMixedQs(difficulty);
+                    break;
+            }
+
+            const [a, op, b, ans] = qs;
+            const row = 
+                make('tr', undefined, undefined, undefined, [
+                    make('td', `#${num}`, 'title'),
+                    make('td', a, 'number'),
+                    make('td', op, 'symbol'),
+                    make('td', b, 'number'),
+                    make('td', '=', 'symbol'),
+                    make('td', undefined, 'answer', undefined, [
+                        make('div', undefined, 'form-group', undefined, [
+                            make('input', undefined, "form-control", { type: 'number', 'data-answer': ans })
+                        ])
+                    ])
+                ]);
+            
+            qsList.appendChild(row);
+        }
+
+        function doCreateQs() {
+            const displayName = $("displayName").value;
+            const questionCount = +$("questionCount").value;
+            const operation = radioValue('operationType');
+            const difficulty = radioValue('difficulty');
+
+            $("questions").style.display = "none";
+
+            $("test-header").innerText = `${capitalizeFirstLetter(operation)} Test for ${displayName}`;
+            $("test-result").innerText = `${questionCount} ${capitalizeFirstLetter(difficulty)} Questions`;
+
+            const qsList = $("question-list");
+            
+            qsList.innerHTML = "";
+            for (let i=0; i<questionCount; i++) {
+                addQuestion(qsList, difficulty, operation, i+1);
+            }            
+            
+            $("check").style.display = "block";
+            $("try-again").style.display = "none";
+            
+
+            $("questions").style.display = "block";
+        }
+
+        function checkQsRow(row) {
+            const input = row.querySelectorAll("input")[0];
+            const enteredValue = +input.value;
+            const correctValue = +input.getAttribute('data-answer');
+            const correct = enteredValue === correctValue;
+            input.classList.add(correct ? "is-valid" : "is-invalid");
+            input.setAttribute('readonly', true);
+            return correct;
+        }
+
+        function doCheck() {
+            const qsList = $("question-list");
+            let qsCount = 0;
+            let qsCorrect = 0;
+            for (let row of qsList.children) {
+                qsCount++;
+                if (checkQsRow(row)) {
+                    qsCorrect++;
+                }
+            }
+
+            $("check").style.display = "none";
+            $("try-again").style.display = "block";
+
+            $("test-result").innerText = `Your Result: ${Math.round(qsCorrect*100/qsCount)}% (${qsCorrect}/${qsCount})`
+        }
+    </script>
+</head>
+<body>
+    <div class="container">
+        <div id="questions" class="mt-3" style="display: none">
+            <h1 id="test-header">{Addition} Test for {DisplayName}</h1>
+            <table class="table" style="width: 20em;">
+                <thead>
+                    <tr>
+                        <td colspan="6">
+                            <h4 id="test-result"></h4>                        
+                        </td>
+                    </tr>
+                </thead>
+                <tbody id="question-list">                    
+                </tbody>
+                <tfoot>
+                    <tr>
+                        <td colspan="6">
+                            <button type="button" id="check" class="btn btn-lg btn-primary" onclick="doCheck()">Check</button>
+                            <button type="button" id="try-again" class="btn btn-lg btn-outline-success" onclick="doCreateQs()">Try Again</button>
+                        </td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+
+        <button type="button" class="btn btn-primary btn-lg my-3" data-bs-toggle="modal" data-bs-target="#create-new">
+            Create New Test
+        </button>  
+
+        <div class="modal fade" id="create-new">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h1>Create Questions</h1>
+                    </div>
+                    <div class="modal-body">
+                        <form action="" method="dialog">
+                    
+                            <div class="row g-2">
+                                <div class="col-md">
+                                    <div class="form-floating mb-3">
+                                        <input type="text" class="form-control" id="displayName" placeholder="Your name" value="Senthuran"/>
+                                        <label for="displayName" class="form-label">Your Name</label>
+                                    </div>
+                                </div>
+                                <div class="col-md">
+                                    <div class="form-floating mb-3">
+                                        <input type="number" class="form-control" id="questionCount" min="1" value="5" placeholder="Question Count"/>
+                                        <label for="questionCount" class="form-label">Number of Questions</label>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <h5>Operation</h5>
+                            <input type="radio" class="btn-check" name="operationType" id="addition" value="addition" autocomplete="off" checked>
+                            <label class="btn btn-outline-info" for="addition">Add +</label>
+            
+                            <input type="radio" class="btn-check" name="operationType" id="subtraction" value="subtraction" autocomplete="off"/>
+                            <label class="btn btn-outline-info" for="subtraction">Subtract -</label>
+            
+                            <input type="radio" class="btn-check" name="operationType" id="multiplication" value="multiplication" autocomplete="off"/>
+                            <label class="btn btn-outline-info" for="multiplication">Times x</label>
+            
+                            <input type="radio" class="btn-check" name="operationType" id="division" value="division" autocomplete="off"/>
+                            <label class="btn btn-outline-info" for="division">Divide /</label>
+            
+                            <input type="radio" class="btn-check" name="operationType" id="mixed" value="mixed" autocomplete="off"/>
+                            <label class="btn btn-outline-info" for="mixed">Mixed</label>
+
+                            <h5>Difficulty</h5>
+                            <input type="radio" class="btn-check" name="difficulty" id="easy" value="easy" autocomplete="off">
+                            <label class="btn btn-outline-info" for="easy">Easy</label>
+            
+                            <input type="radio" class="btn-check" name="difficulty" id="medium" value="medium" autocomplete="off" checked/>
+                            <label class="btn btn-outline-info" for="medium">Medium</label>
+            
+                            <input type="radio" class="btn-check" name="difficulty" id="hard" value="hard" autocomplete="off"/>
+                            <label class="btn btn-outline-info" for="hard">Hard</label>
+                                         
+                        </form>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-lg btn-primary" data-bs-dismiss="modal" onclick="doCreateQs()">Go</button>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <div id="test-results" style="display: none">            
+        </div>
+    </div>    
+  
+
+</body>
+</html>
