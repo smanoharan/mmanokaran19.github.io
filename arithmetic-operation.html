@@ -33,6 +33,14 @@
             text-align: right;
             width: 8rem;
         }
+        .center {
+            padding-top: 1rem;
+            display: block;
+            margin-left: auto;
+            margin-right: auto;
+            width: 30%;
+        }
+
 
         #test-results-container .modal-dialog {
             max-width: 80%;
@@ -212,6 +220,8 @@
             
 
             $("questions").style.display = "block";
+            $("boy-img").style.display = "none";
+            $("buttons").className = "";
 
             setTimeout(() => {
                 $("test-header").scrollIntoView();
@@ -317,12 +327,15 @@
             </table>
         </div>
 
-        <button type="button" class="btn btn-primary btn-lg my-3" data-bs-toggle="modal" data-bs-target="#create-new">
-            Create New Test
-        </button>  
-        <button type="button" class="btn btn-outline-primary btn-lg my-3" data-bs-toggle="modal" data-bs-target="#test-results-container">
-            See History
-        </button>  
+        <img id="boy-img" class="center" src="boy.png" width="300px"/>
+        <div id="buttons" class="center" style="display:flex; justify-content: space-between;">
+            <button type="button" class="btn btn-primary btn-lg my-3" data-bs-toggle="modal" data-bs-target="#create-new">
+                Create New Test
+            </button>  
+            <button type="button" class="btn btn-outline-primary btn-lg my-3" data-bs-toggle="modal" data-bs-target="#test-results-container">
+                See History
+            </button>  
+        </div>
 
         <div class="modal fade" id="create-new">
             <div class="modal-dialog">
