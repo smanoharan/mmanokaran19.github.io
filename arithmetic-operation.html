@@ -23,6 +23,7 @@
             text-align: center;
             width: 1rem;
             font-weight: bold;
+            font-size: large;
         }
         td.title {
             text-align: left;
@@ -31,6 +32,10 @@
         td.answer {
             text-align: right;
             width: 8rem;
+        }
+
+        #test-results-container .modal-dialog {
+            max-width: 80%;
         }
     </style>
 
@@ -58,7 +63,7 @@
                 elem.innerText = text;
             }
             if (className) {
-                elem.classList.add(className);
+                elem.className = className;
             }
             if (attrs) {
                 for (const [k, v] of Object.entries(attrs)) {
@@ -72,6 +77,16 @@
             return elem;
         }
 
+        let results = [];
+        let showResults = false;
+        function onLoad() {
+            const lastResults = localStorage.getItem("results");
+            if (lastResults) {
+                results = JSON.parse(lastResults);
+            }
+            displayResults();
+        }
+
         function generateAdditionQs(difficulty) {
             const min = 1;
             const max = difficulty === "easy" ? 20 : (difficulty === "medium" ? 99 : 999);
@@ -82,7 +97,7 @@
             const first = a === b ? a - 1 : Math.min(a, b);
             const second = ans - first;
 
-            return [first, '+', second, ans];
+            return [first, '+', second, ans, 'text-primary'];
         }
 
         function generateSubtractionQs(difficulty) {
@@ -96,27 +111,27 @@
             const second = a === b ? a - 1 : Math.min(a, b);
             const ans = first - second;
 
-            return [first, '-', second, ans];
+            return [first, '-', second, ans, 'text-secondary'];
         }
 
         function generateMultiplicationQs(difficulty) {
             const min = 2;
-            const max = difficulty === "easy" ? 6 : (difficulty === "medium" ? 12 : 20);
+            const max = difficulty === "easy" ? 5 : (difficulty === "medium" ? 8 : 12);
 
             const first = randomInteger(min, max);
             const second = randomInteger(min, max);
             const ans = first * second;
-            return [first, 'x', second, ans];
+            return [first, 'x', second, ans, 'text-info'];
         }
 
         function generateDivisionQs(difficulty) {
             const min = 2;
-            const max = difficulty === "easy" ? 6 : (difficulty === "medium" ? 12 : 20);
+            const max = difficulty === "easy" ? 5 : (difficulty === "medium" ? 8 : 12);
 
             const left = randomInteger(min, max);
             const right = randomInteger(min, max);
             const product = left * right;
-            return [product, '/', left, right];
+            return [product, '÷', left, right, 'text-warning'];
         }
 
         function generateMixedQs(difficulty) {
@@ -156,12 +171,12 @@
                     break;
             }
 
-            const [a, op, b, ans] = qs;
+            const [a, op, b, ans, opClassName] = qs;
             const row = 
                 make('tr', undefined, undefined, undefined, [
                     make('td', `#${num}`, 'title'),
                     make('td', a, 'number'),
-                    make('td', op, 'symbol'),
+                    make('td', op, 'symbol ' + opClassName),
                     make('td', b, 'number'),
                     make('td', '=', 'symbol'),
                     make('td', undefined, 'answer', undefined, [
@@ -197,37 +212,87 @@
             
 
             $("questions").style.display = "block";
+
+            setTimeout(() => {
+                $("test-header").scrollIntoView();
+                document.querySelectorAll('input')[0].focus();
+            }, 1500);            
         }
 
-        function checkQsRow(row) {
-            const input = row.querySelectorAll("input")[0];
-            const enteredValue = +input.value;
-            const correctValue = +input.getAttribute('data-answer');
-            const correct = enteredValue === correctValue;
-            input.classList.add(correct ? "is-valid" : "is-invalid");
-            input.setAttribute('readonly', true);
-            return correct;
+        function displayResults() {
+            const testResults = $("test-results");
+            testResults.innerHTML = "";
+
+            for (let i=0; i<results.length; i++) {
+                [date, operation, difficulty, qsCount, qsAnswered, qsCorrect, percentageCorrect] = results[i];
+
+                testResults.appendChild(
+                    make('tr', undefined, undefined, undefined, [
+                        make('td', '#' + (i+1)),
+                        make('td', date),
+                        make('td', capitalizeFirstLetter(operation)),
+                        make('td', capitalizeFirstLetter(difficulty)),
+                        make('td', "" + qsCount, 'number'),
+                        make('td', "" + qsAnswered, 'number'),
+                        make('td', "" + qsCorrect, 'number'),
+                        make('td', "" + percentageCorrect + " %", 'number'),
+                    ])
+                )
+            }
+
+            //$("test-results-container").style.display = results.length === 0 ? "none" : "block";
+        }
+
+        function appendTestResult(qsCount, qsAnswered, qsCorrect, percentageCorrect) {
+            const operation = radioValue('operationType');
+            const difficulty = radioValue('difficulty');
+
+            results.push([
+                new Date().toLocaleString('en-NZ'), 
+                operation, difficulty, qsCount, qsAnswered, qsCorrect, percentageCorrect
+            ]);
+
+            displayResults();
+
+            localStorage.setItem("results", JSON.stringify(results));
         }
 
         function doCheck() {
             const qsList = $("question-list");
             let qsCount = 0;
             let qsCorrect = 0;
-            for (let row of qsList.children) {
+            let qsBlank = 0;
+
+            const checkQsRow = (row) => {
                 qsCount++;
-                if (checkQsRow(row)) {
-                    qsCorrect++;
-                }
+
+                const input = row.querySelectorAll("input")[0];
+                const enteredValue = +input.value;
+                const correctValue = +input.getAttribute('data-answer');
+                const correct = enteredValue === correctValue;
+                input.classList.add(correct ? "is-valid" : "is-invalid");
+                input.setAttribute('readonly', true);
+                
+                if (correct) qsCorrect++;
+                if (input.value === "") qsBlank++;
+            }
+
+            for (let row of qsList.children) {
+                checkQsRow(row);
             }
 
             $("check").style.display = "none";
             $("try-again").style.display = "block";
 
-            $("test-result").innerText = `Your Result: ${Math.round(qsCorrect*100/qsCount)}% (${qsCorrect}/${qsCount})`
+            const percentageCorrect = Math.round(qsCorrect*100/qsCount);
+            $("test-result").innerText = `Your Result: ${percentageCorrect}% (${qsCorrect}/${qsCount})`;
+
+            console.log({qsCount, qsBlank, qsCorrect});
+            appendTestResult(qsCount, qsCount - qsBlank, qsCorrect, percentageCorrect);
         }
     </script>
 </head>
-<body>
+<body onload="onLoad()">
     <div class="container">
         <div id="questions" class="mt-3" style="display: none">
             <h1 id="test-header">{Addition} Test for {DisplayName}</h1>
@@ -255,6 +320,9 @@
         <button type="button" class="btn btn-primary btn-lg my-3" data-bs-toggle="modal" data-bs-target="#create-new">
             Create New Test
         </button>  
+        <button type="button" class="btn btn-outline-primary btn-lg my-3" data-bs-toggle="modal" data-bs-target="#test-results-container">
+            See History
+        </button>  
 
         <div class="modal fade" id="create-new">
             <div class="modal-dialog">
@@ -268,7 +336,7 @@
                             <div class="row g-2">
                                 <div class="col-md">
                                     <div class="form-floating mb-3">
-                                        <input type="text" class="form-control" id="displayName" placeholder="Your name" value="Senthuran"/>
+                                        <input type="text" class="form-control" id="displayName" placeholder="Your name"/>
                                         <label for="displayName" class="form-label">Your Name</label>
                                     </div>
                                 </div>
@@ -282,29 +350,29 @@
 
                             <h5>Operation</h5>
                             <input type="radio" class="btn-check" name="operationType" id="addition" value="addition" autocomplete="off" checked>
-                            <label class="btn btn-outline-info" for="addition">Add +</label>
+                            <label class="btn btn-outline-primary" for="addition">Add +</label>
             
                             <input type="radio" class="btn-check" name="operationType" id="subtraction" value="subtraction" autocomplete="off"/>
-                            <label class="btn btn-outline-info" for="subtraction">Subtract -</label>
+                            <label class="btn btn-outline-secondary" for="subtraction">Subtract -</label>
             
                             <input type="radio" class="btn-check" name="operationType" id="multiplication" value="multiplication" autocomplete="off"/>
                             <label class="btn btn-outline-info" for="multiplication">Times x</label>
             
                             <input type="radio" class="btn-check" name="operationType" id="division" value="division" autocomplete="off"/>
-                            <label class="btn btn-outline-info" for="division">Divide /</label>
+                            <label class="btn btn-outline-warning" for="division">Divide &divide;</label>
             
                             <input type="radio" class="btn-check" name="operationType" id="mixed" value="mixed" autocomplete="off"/>
-                            <label class="btn btn-outline-info" for="mixed">Mixed</label>
+                            <label class="btn btn-outline-dark" for="mixed">Mixed</label>
 
                             <h5>Difficulty</h5>
                             <input type="radio" class="btn-check" name="difficulty" id="easy" value="easy" autocomplete="off">
-                            <label class="btn btn-outline-info" for="easy">Easy</label>
+                            <label class="btn btn-outline-success" for="easy">Easy</label>
             
                             <input type="radio" class="btn-check" name="difficulty" id="medium" value="medium" autocomplete="off" checked/>
-                            <label class="btn btn-outline-info" for="medium">Medium</label>
+                            <label class="btn btn-outline-warning" for="medium">Medium</label>
             
                             <input type="radio" class="btn-check" name="difficulty" id="hard" value="hard" autocomplete="off"/>
-                            <label class="btn btn-outline-info" for="hard">Hard</label>
+                            <label class="btn btn-outline-danger" for="hard">Hard</label>
                                          
                         </form>
                     </div>
@@ -316,10 +384,34 @@
 
         </div>
 
-        <div id="test-results" style="display: none">            
+        <div class="modal fade" id="test-results-container">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h1>History</h1>
+                    </div>
+                    <div class="modal-body">
+                        <table class="table" id="test-results-container">
+                            <thead>
+                                <tr>
+                                    <th>Try</th>
+                                    <th>Date</th>
+                                    <th>Operation</th>
+                                    <th>Difficulty</th>
+                                    <th>Questions</th>
+                                    <th>Answered</th>
+                                    <th>Correct</th>
+                                    <th>Percentage</th>
+                                </tr>
+                            </thead>
+                            <tbody id="test-results">
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>    
-  
 
 </body>
 </html>
