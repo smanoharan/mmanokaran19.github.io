@@ -1,7 +1,13 @@
 {
   "short_name": "Badminton",
   "name": "Badminton Scheduler",
-  "icons": [],
+  "icons": [
+    {
+      "src": "/icon.png",
+      "type": "image/png",
+      "sizes": "512x512"
+    }
+  ],
   "id": "/?source=pwa",
   "start_url": "/?source=pwa",
   "background_color": "#3367D6",
