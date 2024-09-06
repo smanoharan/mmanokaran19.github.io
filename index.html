@@ -77,7 +77,7 @@
 
                     this.addHeader(upperRow, `Round ${roundIndex+1}`, 1, 2);
                     for (let courtIndex=0; courtIndex<numCourts; courtIndex++) {
-                        const playerIndex = courtIndex * 2;
+                        const playerIndex = courtIndex * 2 * (awayOffset > 0 ? 2 : 1);
                         this.addCell(upperRow, homeRounds[roundIndex][playerIndex].name);
                         this.addCell(upperRow, homeRounds[roundIndex][playerIndex+1].name);
                         this.addCell(upperRow, '');
